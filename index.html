@@ -146,7 +146,7 @@
         #canvas-container { flex: 1; position: relative; min-height: 0; overflow: hidden; background: #1a1a2e; display: flex; align-items: center; justify-content: center; }
         #canvas-container canvas { display: block; flex: 0 0 auto; transform-origin: center center; }
         #status {
-            position: absolute; top: 8px; right: 10px;
+            position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
             background: rgba(6,10,20,0.78); padding: 6px 11px 6px 25px;
             border-radius: 12px; font-size: 11px; color: #7a8ba6;
             pointer-events: none; z-index: 10; backdrop-filter: blur(6px);
@@ -206,7 +206,7 @@
                 </div>
                 <div class="control-group">
                     <label for="ballCount">Ball Count <span class="value-display" id="ballCountVal">2000</span></label>
-                    <input type="range" id="ballCount" min="10" max="5000" value="2000" step="10">
+                    <input type="range" id="ballCount" min="10" max="10000" value="2000" step="10">
                 </div>
                 <div class="control-group">
                     <label for="ballSize">Marble Size <span class="value-display" id="ballSizeVal">4</span></label>
@@ -215,6 +215,10 @@
                 <div class="control-group">
                     <label for="randomSeed">Random Seed</label>
                     <input type="number" id="randomSeed" min="1" max="2147483647" value="2026" step="1">
+                </div>
+                <div class="control-group">
+                    <label for="reservoirHeight">Reservoir Height <span class="value-display" id="reservoirHeightVal">55px</span></label>
+                    <input type="range" id="reservoirHeight" min="40" max="500" value="55" step="5">
                 </div>
                     </div>
                 </details>
@@ -231,11 +235,11 @@
                 </div>
                 <div class="control-group">
                     <label for="pegRows">Peg Rows <span class="value-display" id="pegRowsVal">20</span></label>
-                    <input type="range" id="pegRows" min="3" max="20" value="20" step="1">
+                    <input type="range" id="pegRows" min="3" max="50" value="20" step="1">
                 </div>
                 <div class="control-group">
                     <label for="pegPerRow">Pegs / Row <span class="value-display" id="pegPerRowVal">30</span></label>
-                    <input type="range" id="pegPerRow" min="3" max="30" value="30" step="1">
+                    <input type="range" id="pegPerRow" min="3" max="50" value="30" step="1">
                 </div>
                 <div class="control-group">
                     <label for="pegSize">Peg Size <span class="value-display" id="pegSizeVal">3</span></label>
@@ -392,6 +396,7 @@
         var container    = document.getElementById('canvas-container');
         var presetSelectEl = document.getElementById('presetSelect');
         var randomSeedEl = document.getElementById('randomSeed');
+        var reservoirHeightEl = document.getElementById('reservoirHeight');
         var ballCountEl  = document.getElementById('ballCount');
         var ballSizeEl   = document.getElementById('ballSize');
         var binCountEl   = document.getElementById('binCount');
@@ -419,6 +424,7 @@
         var showControlsBtn = document.getElementById('showControlsBtn');
         var ballCountVal = document.getElementById('ballCountVal');
         var ballSizeVal  = document.getElementById('ballSizeVal');
+        var reservoirHeightVal = document.getElementById('reservoirHeightVal');
         var binCountVal  = document.getElementById('binCountVal');
         var binHeightVal = document.getElementById('binHeightVal');
         var pegRowsVal   = document.getElementById('pegRowsVal');
@@ -573,7 +579,10 @@
             ]);
 
             // ═══ RESERVOIR ═══
-            var resH = 55, resTop = 4;
+            // Reservoir height is user-controlled. Clamp it so the board below
+            // always keeps room for the gate, pegs and bins.
+            var resTop = 4;
+            var resH = Math.max(40, Math.min(parseInt(reservoirHeightEl.value), canvasH - 160));
             var rwt = 14;
             // Align the reservoir opening with the full-height board walls.
             // This removes the small corner pockets that could trap marbles.
@@ -1092,6 +1101,7 @@
         function syncControlLabels() {
             ballCountVal.textContent = ballCountEl.value;
             ballSizeVal.textContent = ballSizeEl.value;
+            reservoirHeightVal.textContent = reservoirHeightEl.value + 'px';
             binCountVal.textContent = binCountEl.value;
             binHeightVal.textContent = binHeightEl.value + '%';
             pegRowsVal.textContent = pegRowsEl.value;
@@ -1137,7 +1147,7 @@
             if (horizontalSpacing < radiusTotal*2 + 2 || verticalSpace < radiusTotal*2 + 2) {
                 warnings.push('Peg and marble sizes leave very narrow paths. Reduce peg size/rows or increase board width.');
             }
-            var reservoirArea = Math.max(1, (boardW - 20) * 55);
+            var reservoirArea = Math.max(1, (boardW - 20) * parseInt(reservoirHeightEl.value));
             var marbleArea = parseInt(ballCountEl.value) * Math.PI * Math.pow(parseInt(ballSizeEl.value), 2);
             if (marbleArea > reservoirArea * 1.4) {
                 warnings.push('This batch starts highly compressed; loading fewer or smaller marbles will be smoother.');
@@ -1163,6 +1173,10 @@
         });
         ballSizeEl.addEventListener('input', function () {
             ballSizeVal.textContent = ballSizeEl.value;
+        });
+        reservoirHeightEl.addEventListener('input', function () {
+            reservoirHeightVal.textContent = reservoirHeightEl.value + 'px';
+            scheduleLivePreview();
         });
         binCountEl.addEventListener('input', function () {
             binCountVal.textContent = binCountEl.value;
@@ -1216,7 +1230,7 @@
         });
 
         var customControls = [
-            ballCountEl, ballSizeEl, randomSeedEl, binCountEl, binHeightEl,
+            ballCountEl, ballSizeEl, randomSeedEl, reservoirHeightEl, binCountEl, binHeightEl,
             pegRowsEl, pegPerRowEl, pegSizeEl, simWidthEl, gravityEl,
             marbleBounceEl, surfaceGripEl, airDragEl, pegBounceEl,
             simulationSpeedEl, antiStuckEl, pegShapeEl, pegLayoutEl,
