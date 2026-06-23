@@ -143,8 +143,8 @@
             outline: 2px solid #fff; outline-offset: 2px;
         }
 
-        #canvas-container { flex: 1; position: relative; min-height: 0; overflow: hidden; background: #1a1a2e; }
-        #canvas-container canvas { display: block; }
+        #canvas-container { flex: 1; position: relative; min-height: 0; overflow: hidden; background: #1a1a2e; display: flex; align-items: center; justify-content: center; }
+        #canvas-container canvas { display: block; flex: 0 0 auto; transform-origin: center center; }
         #status {
             position: absolute; top: 8px; right: 10px;
             background: rgba(6,10,20,0.78); padding: 6px 11px 6px 25px;
@@ -174,9 +174,7 @@
         }
         #app.compact-mode #controls { display: none; }
         #app.compact-mode #showControlsBtn { display: block; }
-        #app.compact-mode #canvas-container canvas {
-            position: absolute; left: 0; top: 50%; transform: translateY(-50%);
-        }
+        /* Canvas is centered and scaled-to-fit via flex + JS transform (see fitCanvas). */
 
         @media (max-width: 620px) {
             #controls { padding: 9px 10px 11px; }
@@ -240,12 +238,12 @@
                     <input type="range" id="pegPerRow" min="3" max="30" value="30" step="1">
                 </div>
                 <div class="control-group">
-                    <label for="pegSize">Peg Size <span class="value-display" id="pegSizeVal">6</span></label>
-                    <input type="range" id="pegSize" min="3" max="10" value="6" step="1">
+                    <label for="pegSize">Peg Size <span class="value-display" id="pegSizeVal">3</span></label>
+                    <input type="range" id="pegSize" min="3" max="10" value="3" step="1">
                 </div>
                 <div class="control-group">
-                    <label for="simWidth">Sim Width <span class="value-display" id="simWidthVal">100%</span></label>
-                    <input type="range" id="simWidth" min="30" max="100" value="100" step="5">
+                    <label for="simWidth">Sim Width <span class="value-display" id="simWidthVal">1000px</span></label>
+                    <input type="range" id="simWidth" min="200" max="4000" value="1000" step="10">
                 </div>
                     </div>
                 </details>
@@ -380,6 +378,10 @@
         };
         var isDropping = false;
         var simulationPaused = false;
+        // ── Canvas WIDTH is driven by the "Sim Width" slider (absolute pixels, default 1000).
+        //    Canvas HEIGHT is this fixed pixel value. The board renders at this exact pixel
+        //    size and is uniformly scaled DOWN only to fit smaller screens — never stretched.
+        var FIXED_H = 680;
         var canvasW = 0, canvasH = 0;
         var sim = { left:0, right:0, width:0, centerX:0 };
         var binZoneInfo = null;
@@ -474,10 +476,10 @@
             activePhysics.antiStuck = antiStuckEl.value === 'on';
         }
         function calcSim() {
-            var pct = parseInt(simWidthEl.value) / 100;
-            sim.width  = canvasW * pct;
-            sim.left   = (canvasW - sim.width) / 2;
-            sim.right  = sim.left + sim.width;
+            // Sim Width (px) is the canvas width, so the board spans the full canvas.
+            sim.width   = canvasW;
+            sim.left    = 0;
+            sim.right   = canvasW;
             sim.centerX = canvasW / 2;
         }
 
@@ -515,6 +517,13 @@
             gateLeft = null; gateRight = null;
         }
 
+        /* Scale the fixed-size canvas to fit the container (downscale only, keeps aspect). */
+        function fitCanvas() {
+            if (!canvas) return;
+            var s = Math.min(1, container.clientWidth / canvasW, container.clientHeight / canvasH);
+            canvas.style.transform = 'scale(' + s + ')';
+        }
+
         /* ═══ Build World ═══ */
         function buildWorld(loadBalls) {
             if (previewTimer) {
@@ -522,9 +531,8 @@
                 previewTimer = null;
             }
             destroyWorld();
-            canvasW = container.clientWidth;
-            canvasH = container.clientHeight;
-            if (canvasW < 10 || canvasH < 10) return;
+            canvasW = parseInt(simWidthEl.value, 10) || 1000;
+            canvasH = FIXED_H;
             calcSim();
             readPhysicsSettings();
             activeMarbleRadius = parseInt(ballSizeEl.value);
@@ -541,6 +549,7 @@
             container.appendChild(canvas);
             ctx = canvas.getContext('2d');
             ctx.scale(dpr, dpr);
+            fitCanvas();
 
             // Engine
             engine = Engine.create({
@@ -1088,7 +1097,7 @@
             pegRowsVal.textContent = pegRowsEl.value;
             pegPerRowVal.textContent = pegPerRowEl.value;
             pegSizeVal.textContent = pegSizeEl.value;
-            simWidthVal.textContent = simWidthEl.value + '%';
+            simWidthVal.textContent = simWidthEl.value + 'px';
             gravityVal.textContent = parseFloat(gravityEl.value).toFixed(1) + '\u00d7';
             marbleBounceVal.textContent = Math.round(parseFloat(marbleBounceEl.value)*100) + '%';
             surfaceGripVal.textContent = Math.round(parseFloat(surfaceGripEl.value)*100) + '%';
@@ -1101,10 +1110,10 @@
 
         function applyPreset(name) {
             var presets = {
-                classic: [500,4,10,22,12,13,5,65,1,0.2,0.3,0.01,0.55,1,'circle','grid','split'],
-                dense: [2000,4,8,26,20,30,6,100,1,0.15,0.4,0.01,0.6,1,'circle','grid','split'],
-                'high-bounce': [1000,4,10,24,14,17,6,70,1.1,0.65,0.15,0.005,0.9,1,'circle','grid','disappear'],
-                'slow-motion': [750,5,9,28,12,15,6,65,0.6,0.25,0.45,0.015,0.5,0.5,'circle','grid','split']
+                classic: [500,4,10,22,12,13,5,650,1,0.2,0.3,0.01,0.55,1,'circle','grid','split'],
+                dense: [2000,4,8,26,20,30,3,1000,1,0.15,0.4,0.01,0.6,1,'circle','grid','split'],
+                'high-bounce': [1000,4,10,24,14,17,6,700,1.1,0.65,0.15,0.005,0.9,1,'circle','grid','disappear'],
+                'slow-motion': [750,5,9,28,12,15,6,650,0.6,0.25,0.45,0.015,0.5,0.5,'circle','grid','split']
             };
             var p = presets[name];
             if (!p) return;
@@ -1117,9 +1126,9 @@
         }
 
         function validateDesign() {
-            var width = Math.max(320, container.clientWidth || window.innerWidth);
-            var height = Math.max(240, container.clientHeight || 600);
-            var boardW = width * parseInt(simWidthEl.value)/100;
+            var width = parseInt(simWidthEl.value, 10) || 1000;
+            var height = FIXED_H;
+            var boardW = width;
             var horizontalSpacing = Math.max(1, boardW - 50) / (parseInt(pegPerRowEl.value) + 0.5);
             var radiusTotal = parseInt(pegSizeEl.value) + parseInt(ballSizeEl.value);
             var binH = height * parseInt(binHeightEl.value)/100;
@@ -1176,7 +1185,7 @@
             scheduleLivePreview();
         });
         simWidthEl.addEventListener('input', function () {
-            simWidthVal.textContent = simWidthEl.value + '%';
+            simWidthVal.textContent = simWidthEl.value + 'px';
             scheduleLivePreview();
         });
         gravityEl.addEventListener('input', function () {
@@ -1242,7 +1251,8 @@
         var resizeTimer;
         window.addEventListener('resize', function () {
             clearTimeout(resizeTimer);
-            resizeTimer = setTimeout(function () { buildWorld(false); }, 200);
+            // Fixed-size canvas: just rescale to fit — no need to rebuild the simulation.
+            resizeTimer = setTimeout(fitCanvas, 120);
         });
 
         /* ═══ Init ═══ */
